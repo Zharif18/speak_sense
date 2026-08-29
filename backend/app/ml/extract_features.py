@@ -22,7 +22,6 @@ import os
 import shutil
 import subprocess
 import tempfile
-from typing import Optional
 
 import numpy as np
 import librosa
@@ -64,15 +63,7 @@ def _to_wav(audio_path: str) -> str:
     return wav_path
 
 
-def extract_features(audio_path: str, window_seconds: Optional[float] = None) -> np.ndarray:
-    """
-    window_seconds: if given, only the trailing `window_seconds` of audio is
-    used for feature extraction (everything before that is decoded and then
-    dropped). Used by the live-scoring websocket to keep the nervousness
-    score responsive to *recent* speech rather than averaging over an
-    ever-growing whole-session recording. Leave as None (the default) to
-    score the entire clip, as at session finalize / training time.
-    """
+def extract_features(audio_path: str) -> np.ndarray:
     wav_path = _to_wav(audio_path)
     converted = wav_path != audio_path
     try:
@@ -80,11 +71,6 @@ def extract_features(audio_path: str, window_seconds: Optional[float] = None) ->
     finally:
         if converted:
             os.unlink(wav_path)
-
-    if window_seconds is not None:
-        window_samples = int(window_seconds * sr)
-        if window_samples > 0:
-            y = y[-window_samples:]
 
     if len(y) < sr * 0.3:  # too short to extract anything meaningful
         return np.zeros(len(FEATURE_NAMES), dtype=np.float32)
