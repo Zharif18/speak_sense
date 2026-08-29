@@ -10,7 +10,6 @@ from app.schemas import SpeechMetricsOut
 from app.services.speech_analysis import analyze_transcript
 from app.services import vocabulary_wolfram
 from app.services import nervousness_detector
-from app.services import vector_store
 
 router = APIRouter()
 
@@ -76,20 +75,6 @@ async def analyze_session(session_id: str, audio: UploadFile = File(...), db: Se
     session.duration_seconds = duration_seconds
     db.commit()
     db.refresh(db_metrics)
-
-    # 5) Embed + upsert into the vector store for semantic search and
-    #    similarity-based coaching context (see vector_store.py). Never
-    #    allowed to fail this request -- Pinecone being unreachable/unset
-    #    just means this session isn't searchable yet, nothing more.
-    if db_metrics.transcript:
-        vector_store.upsert_session(
-            session_id=session_id,
-            user_id=session.user_id,
-            transcript=db_metrics.transcript,
-            scenario_type=session.scenario_type,
-            words_per_minute=db_metrics.words_per_minute,
-            filler_word_rate=db_metrics.filler_word_rate,
-        )
 
     return db_metrics
 

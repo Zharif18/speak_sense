@@ -9,8 +9,6 @@ until you run the training script.
 """
 
 import os
-from typing import Optional
-
 import joblib
 import numpy as np
 
@@ -34,14 +32,10 @@ def _load_model():
     return _cached
 
 
-def score_nervousness(audio_path: str, window_seconds: Optional[float] = None):
+def score_nervousness(audio_path: str):
     """
     Returns {"nervousness_score": float 0-1, "label": str} or None if the
     model hasn't been trained yet.
-
-    window_seconds: passed through to extract_features -- score only the
-    trailing N seconds of audio_path instead of the whole file. Used for
-    live, in-session scoring; leave None for the final, whole-clip score.
     """
     bundle = _load_model()
     if bundle is None:
@@ -50,7 +44,7 @@ def score_nervousness(audio_path: str, window_seconds: Optional[float] = None):
     model = bundle["model"]
     scaler = bundle["scaler"]
 
-    features = extract_features(audio_path, window_seconds=window_seconds).reshape(1, -1)
+    features = extract_features(audio_path).reshape(1, -1)
     features_scaled = scaler.transform(features)
 
     probability = float(model.predict_proba(features_scaled)[0][1])  # P(nervous)
