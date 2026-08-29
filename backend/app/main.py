@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
-from app.routers import sessions, speech, video, wearables, coaching, vocabulary, search
+from app.routers import sessions, speech, video, wearables, coaching, vocabulary, search, live
 
 # Comma-separated list, e.g. "http://localhost:3000,https://speaksense-frontend.onrender.com"
 ALLOWED_ORIGINS = [
@@ -46,6 +46,7 @@ app.include_router(search.router, prefix="/api/search", tags=["search"])
 app.include_router(wearables.router, prefix="/api/wearables", tags=["wearables"])
 app.include_router(coaching.router, prefix="/api/coaching", tags=["coaching"])
 app.include_router(vocabulary.router, prefix="/api/vocabulary", tags=["vocabulary"])
+app.include_router(live.router, prefix="/ws/live", tags=["live"])
 
 
 @app.get("/api/health")
