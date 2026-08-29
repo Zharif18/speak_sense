@@ -1,0 +1,18 @@
+# Local dev only: spins up Postgres for the FastAPI backend.
+# Deploy backend + frontend separately on Render (see README).
+version: "3.9"
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: speaksense
+      POSTGRES_PASSWORD: speaksense
+      POSTGRES_DB: speaksense
+    ports:
+      - "5432:5432"
+    volumes:
+      - speaksense_db_data:/var/lib/postgresql/data
+
+volumes:
+  speaksense_db_data:

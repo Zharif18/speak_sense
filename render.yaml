@@ -1,0 +1,58 @@
+# Render Blueprint. Deploy with: connect this repo in the Render dashboard
+# and choose "New > Blueprint" -- Render reads this file and provisions all
+# three resources together. See README.md "Deploying to Render" for the
+# full step-by-step.
+
+databases:
+  - name: speaksense-db
+    plan: free
+    databaseName: speaksense
+    user: speaksense
+
+services:
+  # --- FastAPI backend ---
+  - type: web
+    name: speaksense-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: speaksense-db
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false          # set manually in the Render dashboard
+      - key: WOLFRAM_APP_ID
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: speaksense-sessions
+      - key: N8N_WEBHOOK_URL
+        sync: false
+
+  # --- Next.js frontend ---
+  - type: web
+    name: speaksense-frontend
+    runtime: node
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NEXT_PUBLIC_API_BASE_URL
+        fromService:
+          type: web
+          name: speaksense-backend
+          property: hostport
+          # Render fills this in as https://speaksense-backend.onrender.com
+          # after first deploy; double-check it matches in the dashboard.
