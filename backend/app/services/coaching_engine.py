@@ -55,6 +55,7 @@ def build_context_payload(
     stress_index: Optional[float],
     past_sessions: List[Dict[str, Any]],
     video_metrics: Optional[Dict[str, Any]] = None,
+    similar_sessions: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     payload = {
         "scenario_type": scenario_type,
@@ -91,6 +92,12 @@ def build_context_payload(
             ),
         } if video_metrics else None,
         "recent_session_trend": past_sessions,  # e.g. last 5 sessions' key metrics
+        "semantically_similar_past_sessions": similar_sessions or [],  # via vector search, not chronology
+        "similar_sessions_note": (
+            "these are past sessions with SIMILAR content/challenges, found by "
+            "vector similarity -- use them to notice recurring patterns across "
+            "time (e.g. 'you also rambled here last time'), not just recent ones"
+        ) if similar_sessions else None,
     }
     return json.dumps(payload, indent=2)
 
@@ -102,10 +109,11 @@ def generate_coaching_feedback(
     stress_index: Optional[float] = None,
     past_sessions: Optional[List[Dict[str, Any]]] = None,
     video_metrics: Optional[Dict[str, Any]] = None,
+    similar_sessions: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     context = build_context_payload(
         scenario_type, prompt_text, speech_metrics, stress_index, past_sessions or [],
-        video_metrics=video_metrics,
+        video_metrics=video_metrics, similar_sessions=similar_sessions,
     )
 
     model = genai.GenerativeModel(

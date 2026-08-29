@@ -8,6 +8,7 @@ from app.schemas import CoachingRequest, CoachingFeedbackOut
 from app.services.coaching_engine import generate_coaching_feedback
 from app.services.wearable_adapter import compute_stress_index, NormalizedReading
 from app.services.n8n_notify import notify_session_analyzed
+from app.services import vector_store
 
 router = APIRouter()
 
@@ -73,6 +74,19 @@ async def generate_feedback(payload: CoachingRequest, db: Session = Depends(get_
             "body_language_label": v.body_language_label,
         }
 
+    # Semantically similar past sessions (via Pinecone), not just the most
+    # recent ones -- e.g. surfaces an interview from 3 months ago that
+    # rambled in the same way, even if it's not in the last 5 sessions.
+    # Empty list if Pinecone isn't configured or nothing's indexed yet.
+    similar_sessions = []
+    if session.speech_metrics and session.speech_metrics.transcript:
+        similar_sessions = vector_store.find_similar_sessions(
+            session_id=session.id,
+            user_id=session.user_id,
+            transcript=session.speech_metrics.transcript,
+            top_k=3,
+        )
+
     result = generate_coaching_feedback(
         scenario_type=session.scenario_type,
         prompt_text=session.prompt_text,
@@ -80,6 +94,7 @@ async def generate_feedback(payload: CoachingRequest, db: Session = Depends(get_
         stress_index=stress_index,
         past_sessions=past_summaries,
         video_metrics=video_metrics_dict,
+        similar_sessions=similar_sessions,
     )
 
     feedback = CoachingFeedback(
