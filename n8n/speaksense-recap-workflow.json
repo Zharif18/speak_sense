@@ -1,0 +1,68 @@
+{
+  "name": "SpeakSense - Session Analyzed Recap",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "speaksense",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-node",
+      "name": "Webhook - session analyzed",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300],
+      "webhookId": "speaksense-session-analyzed"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "recap_message",
+              "type": "string",
+              "value": "={{ \"New SpeakSense session for \" + $json.user_id + \" (\" + $json.scenario_type + \"): confidence \" + $json.confidence_score + \", filler rate \" + $json.filler_word_rate + \"/100 words.\" }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-node",
+      "name": "Build recap message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Replace this node\n\nSwap this Sticky Note area for a real notification node once you know where recaps should go, e.g.:\n\n- Slack node -> post `{{$json.recap_message}}` to a channel\n- Gmail/Send Email node -> email the student their recap\n- Google Sheets node -> append a row for a coach dashboard\n\nThe Webhook and Set nodes upstream already give you a clean, ready-to-use `recap_message` field plus the full raw payload from SpeakSense.",
+        "height": 220,
+        "width": 320
+      },
+      "id": "sticky-note",
+      "name": "Next steps",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [740, 220]
+    }
+  ],
+  "connections": {
+    "Webhook - session analyzed": {
+      "main": [
+        [
+          {
+            "node": "Build recap message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
