@@ -1,4 +1,4 @@
-# Local dev only: spins up Postgres for the FastAPI backend.
+# Local dev only: spins up Postgres + Actian VectorAI DB for the FastAPI backend.
 # Deploy backend + frontend separately on Render (see README).
 version: "3.9"
 services:
@@ -14,5 +14,18 @@ services:
     volumes:
       - speaksense_db_data:/var/lib/postgresql/data
 
+  vectorai:
+    image: actian/vectorai:latest
+    restart: unless-stopped
+    environment:
+      ACTIAN_VECTORAI_ACCEPT_EULA: "YES"
+    ports:
+      - "6573:6573"  # REST API
+      - "6574:6574"  # gRPC -- this is what the Python client actually talks to
+      - "6575:6575"  # local dashboard UI
+    volumes:
+      - speaksense_vectorai_data:/var/lib/actian-vectorai
+
 volumes:
   speaksense_db_data:
+  speaksense_vectorai_data:

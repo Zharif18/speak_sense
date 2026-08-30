@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MiniWaveform } from "@/components/speaksense/waveform";
+import { WearableStatusCard } from "@/components/speaksense/wearable-status";
 import { API_BASE } from "@/lib/api";
 import { DEMO_USER_ID } from "@/lib/constants";
 
@@ -291,6 +292,21 @@ export default function RecordPage() {
         }
       }
 
+      // 2c) Sweep up any watch readings (heart rate, etc.) that landed in this
+      // session's recording window but weren't tagged with a session_id yet --
+      // e.g. an Android Health Connect bridge syncing NoiseFit data in the
+      // background. Never blocks the rest of the flow if it fails.
+      try {
+        const claimRes = await fetch(`${API_BASE}/api/wearables/session/${session.id}/claim`, {
+          method: "POST",
+        });
+        if (!claimRes.ok) {
+          console.warn(`Wearable claim failed (${claimRes.status}): ${await claimRes.text()}`);
+        }
+      } catch (claimErr) {
+        console.warn("Wearable claim request failed:", claimErr);
+      }
+
       // 3) Generate tailored coaching feedback from this session's real
       //    metrics (+ recent history + stress index/body-language if present).
       const coachingRes = await fetch(`${API_BASE}/api/coaching/generate`, {
@@ -329,6 +345,10 @@ export default function RecordPage() {
     <main className="container-page py-14 md:py-20">
       <p className="font-mono text-xs uppercase tracking-[0.18em] text-teal-600 mb-3">Step 1 — Record</p>
       <h1 className="text-3xl md:text-4xl mb-8 max-w-xl">Pick a scenario, then just talk.</h1>
+
+      <div className="mb-8">
+        <WearableStatusCard />
+      </div>
 
       <div className="grid gap-8 md:grid-cols-[1fr_1.2fr]">
         <div>
