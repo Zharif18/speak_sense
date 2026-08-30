@@ -5,7 +5,7 @@
 
 databases:
   - name: speaksense-db
-    plan: free
+    plan: basic-256mb
     databaseName: speaksense
     user: speaksense
 
@@ -14,7 +14,7 @@ services:
   - type: web
     name: speaksense-backend
     runtime: python
-    plan: starter
+    plan: standard
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
