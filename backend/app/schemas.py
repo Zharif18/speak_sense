@@ -91,6 +91,18 @@ class WearableReadingOut(WearableReadingIn):
         from_attributes = True
 
 
+class WearableConnectionOut(BaseModel):
+    user_id: str
+    device_type: Optional[str] = None
+    connected: bool
+    connected_at: Optional[datetime] = None
+    last_synced_at: Optional[datetime] = None
+
+
+class WearableDisconnectRequest(BaseModel):
+    delete_history: bool = False
+
+
 # ---------- Coaching ----------
 
 class CoachingRequest(BaseModel):
@@ -102,6 +114,9 @@ class CoachingFeedbackOut(BaseModel):
     strengths: Optional[List[str]]
     improvement_tips: Optional[List[str]]
     stress_index: Optional[float]
+    stress_index_raw: Optional[float] = None
+    stress_confidence: Optional[float] = None
+    stress_reasons: Optional[List[str]] = None
     confidence_score: Optional[float]
 
     class Config:
