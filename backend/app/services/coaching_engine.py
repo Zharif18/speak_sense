@@ -26,6 +26,13 @@ Rules:
 - If physiological data is present, describe it as "context" (e.g. "your heart rate
   was higher than your baseline during this session"), never as a measurement of
   the user's internal state.
+- The physiological context includes a "confidence" (0-1) on the heart-rate signal
+  itself -- it's discounted when nothing in the session's speech backs it up, or
+  when the heart-rate trace looked noisy (a common false-positive from wrist
+  sensors). If confidence is below ~0.5, don't lead with the heart-rate reading or
+  state it as a fact -- either skip it or mention it only as a minor, uncertain
+  aside ("there was a brief heart-rate uptick, though it's hard to say if that
+  reflects the moment or just the sensor").
 - If vocal tension data is present, describe it the same way -- as a signal about
   vocal delivery (e.g. "your voice showed more pitch instability early on"), never
   as a diagnosis of how nervous the user actually felt.
@@ -52,7 +59,7 @@ def build_context_payload(
     scenario_type: str,
     prompt_text: Optional[str],
     speech_metrics: Dict[str, Any],
-    stress_index: Optional[float],
+    weighted_stress: Optional[Any],
     past_sessions: List[Dict[str, Any]],
     video_metrics: Optional[Dict[str, Any]] = None,
 ) -> str:
@@ -68,9 +75,15 @@ def build_context_payload(
             "vocabulary_richness_ttr": speech_metrics.get("unique_word_ratio"),
         },
         "physiological_context": {
-            "relative_stress_index": stress_index,
-            "note": "positive = heart rate above this user's personal baseline during the session",
-        } if stress_index is not None else None,
+            "relative_stress_index": weighted_stress.stress_index,
+            "raw_relative_stress_index": weighted_stress.raw_stress_index,
+            "confidence": weighted_stress.confidence,
+            "why": weighted_stress.reasons,
+            "note": (
+                "positive = heart rate above this user's personal baseline during the "
+                "session; already down-weighted for corroboration/sensor-noise, see confidence"
+            ),
+        } if weighted_stress is not None and weighted_stress.stress_index is not None else None,
         "vocal_tension_context": {
             "nervousness_score": speech_metrics.get("nervousness_score"),
             "label": speech_metrics.get("nervousness_label"),
@@ -99,12 +112,12 @@ def generate_coaching_feedback(
     scenario_type: str,
     prompt_text: Optional[str],
     speech_metrics: Dict[str, Any],
-    stress_index: Optional[float] = None,
+    weighted_stress: Optional[Any] = None,
     past_sessions: Optional[List[Dict[str, Any]]] = None,
     video_metrics: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     context = build_context_payload(
-        scenario_type, prompt_text, speech_metrics, stress_index, past_sessions or [],
+        scenario_type, prompt_text, speech_metrics, weighted_stress, past_sessions or [],
         video_metrics=video_metrics,
     )
 

@@ -3,10 +3,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from app.database import get_db
-from app.models import SpeakingSession, CoachingFeedback
+from app.models import SpeakingSession, CoachingFeedback, WearableConnection
 from app.schemas import CoachingRequest, CoachingFeedbackOut
 from app.services.coaching_engine import generate_coaching_feedback
-from app.services.wearable_adapter import compute_stress_index, NormalizedReading
+from app.services.wearable_adapter import (
+    compute_weighted_stress_index,
+    fetch_baseline_hr,
+    NormalizedReading,
+)
 from app.services.n8n_notify import notify_session_analyzed
 
 router = APIRouter()
@@ -39,17 +43,35 @@ async def generate_feedback(payload: CoachingRequest, db: Session = Depends(get_
         for s in past
     ]
 
-    stress_index = None
-    if session.wearable_readings:
+    weighted_stress = None
+    connection = db.query(WearableConnection).filter(WearableConnection.user_id == session.user_id).first()
+    wearable_connected = connection is not None and connection.connected
+
+    if wearable_connected and session.wearable_readings:
         normalized = [
             NormalizedReading(r.device_type, r.metric_type, r.value, r.unit, r.recorded_at)
             for r in session.wearable_readings
         ]
         hr_values = [r.value for r in normalized if r.metric_type == "heart_rate"]
         if hr_values:
-            # In production, fetch the real baseline via /wearables/user/{id}/baseline-hr.
-            baseline = sum(hr_values) / len(hr_values) * 0.9
-            stress_index = compute_stress_index(normalized, baseline)
+            # Real resting baseline from this user's non-session readings, when
+            # we have one. If the watch was only just connected and there's no
+            # 14-day resting history yet, fall back to a same-session estimate --
+            # but that estimate is far less trustworthy, so it's flagged and the
+            # weighting engine caps confidence accordingly rather than treating
+            # it like a measured baseline.
+            baseline = fetch_baseline_hr(db, session.user_id)
+            baseline_is_estimated = baseline is None
+            if baseline is None:
+                baseline = sum(hr_values) / len(hr_values) * 0.9
+
+            weighted_stress = compute_weighted_stress_index(
+                normalized,
+                baseline,
+                longest_pause_seconds=session.speech_metrics.longest_pause_seconds,
+                nervousness_score=session.speech_metrics.nervousness_score,
+                baseline_is_estimated=baseline_is_estimated,
+            )
 
     metrics_dict = {
         "words_per_minute": session.speech_metrics.words_per_minute,
@@ -77,7 +99,7 @@ async def generate_feedback(payload: CoachingRequest, db: Session = Depends(get_
         scenario_type=session.scenario_type,
         prompt_text=session.prompt_text,
         speech_metrics=metrics_dict,
-        stress_index=stress_index,
+        weighted_stress=weighted_stress,
         past_sessions=past_summaries,
         video_metrics=video_metrics_dict,
     )
@@ -87,7 +109,10 @@ async def generate_feedback(payload: CoachingRequest, db: Session = Depends(get_
         summary=result.get("summary"),
         strengths=result.get("strengths"),
         improvement_tips=result.get("improvement_tips"),
-        stress_index=stress_index,
+        stress_index=weighted_stress.stress_index if weighted_stress else None,
+        stress_index_raw=weighted_stress.raw_stress_index if weighted_stress else None,
+        stress_confidence=weighted_stress.confidence if weighted_stress else None,
+        stress_reasons=weighted_stress.reasons if weighted_stress else None,
         confidence_score=result.get("confidence_score"),
     )
     db.add(feedback)

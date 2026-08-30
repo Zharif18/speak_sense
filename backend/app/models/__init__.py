@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    Column, String, Float, Integer, DateTime, ForeignKey, JSON, Text, Enum
+    Column, String, Float, Integer, DateTime, ForeignKey, JSON, Text, Enum, Boolean
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
@@ -144,11 +144,32 @@ class CoachingFeedback(Base):
     summary = Column(Text, nullable=True)
     strengths = Column(JSON, nullable=True)      # list[str]
     improvement_tips = Column(JSON, nullable=True)  # list[str]
-    stress_index = Column(Float, nullable=True)   # relative-to-baseline physio signal, may be null
+    stress_index = Column(Float, nullable=True)   # corroboration-WEIGHTED, relative-to-baseline physio signal
+    stress_index_raw = Column(Float, nullable=True)  # unweighted (avg_hr - baseline) / baseline, for transparency
+    stress_confidence = Column(Float, nullable=True)  # 0-1, how much a long/noisy HR delta was trusted
+    stress_reasons = Column(JSON, nullable=True)  # list[str], why the index was/wasn't discounted
     confidence_score = Column(Float, nullable=True)  # 0-100 composite, heuristic not diagnostic
     created_at = Column(DateTime, default=datetime.utcnow)
 
     session = relationship("SpeakingSession", back_populates="coaching_feedback")
+
+
+class WearableConnection(Base):
+    """
+    One row per user: whether their watch/wearable is currently "connected"
+    from SpeakSense's point of view, and when data last arrived. The actual
+    OS-level pairing (Health Connect permissions, NoiseFit sync) happens on
+    the phone via the bridge app -- this table just tracks in-app status so
+    the UI can show a connect/disconnect toggle and the coaching flow can
+    respect a user's choice to stop factoring in heart-rate data.
+    """
+    __tablename__ = "wearable_connections"
+
+    user_id = Column(UUID(as_uuid=False), ForeignKey("users.id"), primary_key=True)
+    device_type = Column(String, nullable=True)   # e.g. "noisefit"
+    connected = Column(Boolean, default=False)
+    connected_at = Column(DateTime, nullable=True)
+    last_synced_at = Column(DateTime, nullable=True)
 
 
 class DailyChallenge(Base):
