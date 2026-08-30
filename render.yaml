@@ -14,7 +14,7 @@ services:
   - type: web
     name: speaksense-backend
     runtime: python
-    plan: free
+    plan: starter
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
@@ -27,6 +27,14 @@ services:
         value: production
       - key: SECRET_KEY
         generateValue: true
+      - key: ALLOWED_ORIGINS
+        fromService:
+          type: web
+          name: speaksense-frontend
+          property: hostport
+        # Render fills this in as https://speaksense-frontend.onrender.com
+        # after first deploy -- double-check it matches the CORS check in
+        # app/main.py (comma-separated list, no trailing slash).
       - key: GEMINI_API_KEY
         sync: false          # set manually in the Render dashboard
       - key: WOLFRAM_APP_ID
@@ -39,6 +47,30 @@ services:
         value: speaksense-sessions
       - key: N8N_WEBHOOK_URL
         sync: false
+      - key: ACTIAN_VECTORAI_URL
+        fromService:
+          type: pserv
+          name: speaksense-vectorai
+          property: hostport
+      - key: ACTIAN_VECTORAI_COLLECTION
+        value: speaksense_sessions
+      - key: EMBEDDING_MODEL
+        value: sentence-transformers/all-MiniLM-L6-v2
+
+  # --- Actian VectorAI DB (private service -- only the backend talks to it) ---
+  # NOTE: Render's free plan has no persistent disk, so the vector index
+  # resets on every restart/redeploy. Fine for a hackathon demo where you
+  # (re)populate it live; for anything longer-lived, upgrade this service's
+  # plan and attach a Render Disk mounted at /var/lib/actian-vectorai.
+  - type: pserv
+    name: speaksense-vectorai
+    runtime: image
+    plan: free
+    image:
+      url: docker.io/actian/vectorai:latest
+    envVars:
+      - key: ACTIAN_VECTORAI_ACCEPT_EULA
+        value: "YES"
 
   # --- Next.js frontend ---
   - type: web

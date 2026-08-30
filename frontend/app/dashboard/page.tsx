@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Card } from "@/components/ui/card";
 import { MiniWaveform } from "@/components/speaksense/waveform";
+import { WearableStatusCard } from "@/components/speaksense/wearable-status";
 import { API_BASE } from "@/lib/api";
 import { DEMO_USER_ID } from "@/lib/constants";
 
@@ -48,6 +49,9 @@ type CoachingFeedback = {
   strengths: string[] | null;
   improvement_tips: string[] | null;
   stress_index: number | null;
+  stress_index_raw: number | null;
+  stress_confidence: number | null;
+  stress_reasons: string[] | null;
   confidence_score: number | null;
 };
 
@@ -218,6 +222,10 @@ function DashboardContent() {
         {progress!.points.length} session{progress!.points.length === 1 ? "" : "s"} in, and it shows.
       </h1>
 
+      <div className="mb-6">
+        <WearableStatusCard />
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <Card className="p-6 md:p-8">
           <div className="flex items-center justify-between mb-6">
@@ -382,10 +390,20 @@ function DashboardContent() {
                 </ul>
               )}
               {feedback.stress_index !== null && feedback.stress_index !== undefined && (
-                <p className="text-xs text-mist-600 border-t border-line pt-4">
-                  Heart rate was {Math.abs(Math.round((feedback.stress_index - 1) * 100))}%{" "}
-                  {feedback.stress_index > 1 ? "above" : "below"} your resting baseline during this session.
-                </p>
+                <div className="text-xs text-mist-600 border-t border-line pt-4 space-y-1">
+                  <p>
+                    Heart rate was {Math.abs(Math.round(feedback.stress_index * 100))}%{" "}
+                    {feedback.stress_index >= 0 ? "above" : "below"} your resting baseline during this session.
+                  </p>
+                  {feedback.stress_confidence !== null && feedback.stress_confidence !== undefined && (
+                    <p className="text-ink/40">
+                      Confidence in this reading: {Math.round(feedback.stress_confidence * 100)}%
+                      {feedback.stress_reasons && feedback.stress_reasons.length > 0
+                        ? ` — ${feedback.stress_reasons.join("; ")}`
+                        : ""}
+                    </p>
+                  )}
+                </div>
               )}
             </>
           ) : (
